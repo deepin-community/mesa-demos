@@ -1,0 +1,40 @@
+Source: mesa-demos
+Section: utils
+Priority: optional
+Maintainer: Debian X Strike Force <debian-x@lists.debian.org>
+Uploaders: Maarten Lankhorst <maarten.lankhorst@ubuntu.com>, Andreas Boll <andreas.boll.dev@gmail.com>
+Standards-Version: 4.1.3
+Build-Depends: debhelper (>= 11~),
+ quilt (>= 0.63-8.2~),
+ pkg-config,
+ libx11-dev,
+ libxext-dev,
+ libgl1-mesa-dev,
+ libglew-dev,
+ libglu1-mesa-dev,
+ libegl1-mesa-dev,
+ libgles2-mesa-dev,
+ libwayland-dev [linux-any],
+Homepage: https://mesa3d.org/
+Vcs-Git: https://anonscm.debian.org/git/pkg-xorg/app/mesa-demos.git
+Vcs-Browser: https://anonscm.debian.org/cgit/pkg-xorg/app/mesa-demos.git
+
+Package: mesa-utils
+Section: x11
+Architecture: any
+Depends:
+ ${shlibs:Depends},
+ ${misc:Depends},
+Description: Miscellaneous Mesa GL utilities
+ This package provides several basic GL utilities built by Mesa, including
+ glxinfo and glxgears.
+
+Package: mesa-utils-extra
+Section: x11
+Architecture: any
+Depends:
+ ${shlibs:Depends},
+ ${misc:Depends},
+Description: Miscellaneous Mesa utilies (opengles, egl)
+ This package provides several basic utilities built from Mesa, including
+ es2gears, es2_info and es2tri

@@ -1,0 +1,8 @@
+# OS-independent part (from mesa-utils-extra.install):
+usr/bin/eglinfo
+usr/bin/es2_info
+usr/bin/es2gears_x11
+usr/bin/es2tri
+
+# Wayland support, only on Linux:
+usr/bin/es2gears_wayland

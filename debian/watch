@@ -1,0 +1,4 @@
+#git=git://anongit.freedesktop.org/mesa/demos
+version=3
+opts="uversionmangle=s/-rc/~rc/,pgpsigurlmangle=s/$/.sig/" \
+https://mesa.freedesktop.org/archive/demos/mesa-demos-(.*)\.tar\.gz
