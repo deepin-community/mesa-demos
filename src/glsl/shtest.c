@@ -33,7 +33,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include <GL/glew.h>
+#include <glad/glad.h>
 #include "glut_wrap.h"
 #include "shaderutil.h"
 #include "readtex.h"
@@ -543,12 +543,11 @@ ReadConfigFile(const char *filename, struct config_file *conf)
          }
          else if (strncmp(line, "uniform ", 8) == 0) {
             char name[1000], typeName[100];
-            int k;
             float v1 = 0.0F, v2 = 0.0F, v3 = 0.0F, v4 = 0.0F;
             GLenum type;
 
-            k = sscanf(line + 8, "%s %s %f %f %f %f", typeName, name,
-                       &v1, &v2, &v3, &v4);
+            sscanf(line + 8, "%s %s %f %f %f %f", typeName, name,
+                   &v1, &v2, &v3, &v4);
 
             type = TypeFromName(typeName);
 
@@ -695,7 +694,7 @@ main(int argc, char *argv[])
    glutInit(&argc, argv);
    glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE | GLUT_DEPTH);
    win = glutCreateWindow(argv[0]);
-   glewInit();
+   gladLoadGL();
    glutReshapeFunc(Reshape);
    glutKeyboardFunc(Key);
    glutSpecialFunc(SpecialKey);

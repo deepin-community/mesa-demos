@@ -34,13 +34,10 @@
  * Brian Paul  26 January 2000
  */
 
-#define GLX_GLXEXT_PROTOTYPES
-#define GL_GLEXT_PROTOTYPES
-
 #include <assert.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
-#include <GL/gl.h>
+#include "glad/glad.h"
 #include <GL/glx.h>
 #include <stdio.h>
 #include <string.h>
@@ -100,9 +97,20 @@ struct visual_attribs
    int floatComponents;
    int packedfloatComponents;
    int srgb;
+   int swapMethod;
 };
 
-   
+struct options
+{
+   InfoMode mode;
+   GLboolean findBest;
+   GLboolean limits;
+   GLboolean singleLine;
+   char *displayName;
+   GLboolean allowDirect;
+};
+
+
 /**
  * Version of the context that was created
  *
@@ -458,6 +466,13 @@ print_screen_info(Display *dpy, int scrnum,
 		       visinfo->visual, mask, &attr);
 
    if (glXMakeCurrent(dpy, win, ctx)) {
+      int loaded_gl = gladLoadGLLoader((GLADloadproc) glXGetProcAddressARB);
+
+      if (!loaded_gl) {
+         fprintf(stderr, "Error: unable to load GL functions\n");
+         exit(1);
+      }
+
       const char *serverVendor = glXQueryServerString(dpy, scrnum, GLX_VENDOR);
       const char *serverVersion = glXQueryServerString(dpy, scrnum, GLX_VERSION);
       const char *serverExtensions = glXQueryServerString(dpy, scrnum, GLX_EXTENSIONS);
@@ -478,11 +493,11 @@ print_screen_info(Display *dpy, int scrnum,
       CheckError(__LINE__);
 
       /* Get some ext functions */
-      extfuncs.GetProgramivARB = (GETPROGRAMIVARBPROC)
+      extfuncs.GetProgramivARB = (PFNGLGETPROGRAMIVARBPROC)
          glXGetProcAddressARB((GLubyte *) "glGetProgramivARB");
-      extfuncs.GetStringi = (GETSTRINGIPROC)
+      extfuncs.GetStringi = (PFNGLGETSTRINGIPROC)
          glXGetProcAddressARB((GLubyte *) "glGetStringi");
-      extfuncs.GetConvolutionParameteriv = (GETCONVOLUTIONPARAMETERIVPROC)
+      extfuncs.GetConvolutionParameteriv = (PFNGLGETCONVOLUTIONPARAMETERIVPROC)
          glXGetProcAddressARB((GLubyte *) "glGetConvolutionParameteriv");
 
       if (!glXQueryVersion(dpy, & glxVersionMajor, & glxVersionMinor)) {
@@ -559,28 +574,26 @@ print_screen_info(Display *dpy, int scrnum,
 
       CheckError(__LINE__);
 
-#ifdef GL_VERSION_2_0
       if (version >= 20) {
          char *v = (char *) glGetString(GL_SHADING_LANGUAGE_VERSION);
          printf("%s shading language version string: %s\n", oglstring, v);
       }
-#endif
+
       CheckError(__LINE__);
-#ifdef GL_VERSION_3_0
+
       if (version >= 30 && !es2Profile) {
          GLint flags;
          glGetIntegerv(GL_CONTEXT_FLAGS, &flags);
          printf("%s context flags: %s\n", oglstring, context_flags_string(flags));
       }
-#endif
+
       CheckError(__LINE__);
-#ifdef GL_VERSION_3_2
+
       if (version >= 32 && !es2Profile) {
          GLint mask;
          glGetIntegerv(GL_CONTEXT_PROFILE_MASK, &mask);
          printf("%s profile mask: %s\n", oglstring, profile_mask_string(mask));
       }
-#endif
 
       CheckError(__LINE__);
 
@@ -700,6 +713,37 @@ caveat_string(int caveat)
    }
 }
 
+static const char *
+swap_method_verbose_string(int swap_method)
+{
+   switch (swap_method) {
+#ifdef GLX_SWAP_METHOD_OML
+      case GLX_SWAP_EXCHANGE_OML:
+         return "Exchange";
+      case GLX_SWAP_COPY_OML:
+         return "Copy";
+      case GLX_SWAP_UNDEFINED_OML:
+         return "Undefined";
+#endif
+      default:
+         return "Unknown value";
+   }
+}
+
+static char
+swap_method_short_string(int swap_method)
+{
+#ifdef GLX_SWAP_METHOD_OML
+    if (swap_method == GLX_SWAP_EXCHANGE_OML)
+        return 'e';
+    else if (swap_method == GLX_SWAP_COPY_OML)
+        return 'c';
+    else if (swap_method == GLX_SWAP_UNDEFINED_OML)
+        return 'u';
+#endif
+    return '.';
+}
+
 
 static Bool
 get_visual_attribs(Display *dpy, XVisualInfo *vInfo,
@@ -787,6 +831,12 @@ get_visual_attribs(Display *dpy, XVisualInfo *vInfo,
 #if defined(GLX_EXT_framebuffer_sRGB)
    if (ext && strstr(ext, "GLX_EXT_framebuffer_sRGB")) {
       glXGetConfig(dpy, vInfo, GLX_FRAMEBUFFER_SRGB_CAPABLE_EXT, &attribs->srgb);
+   }
+#endif
+
+#if defined(GLX_OML_swap_method)
+   if (ext && strstr(ext, "GLX_OML_swap_method")) {
+      glXGetConfig(dpy, vInfo, GLX_SWAP_METHOD_OML, &attribs->swapMethod);
    }
 #endif
 
@@ -905,6 +955,13 @@ get_fbconfig_attribs(Display *dpy, GLXFBConfig fbconfig,
       glXGetFBConfigAttrib(dpy, fbconfig, GLX_FRAMEBUFFER_SRGB_CAPABLE_EXT, &attribs->srgb);
    }
 #endif
+
+#if defined(GLX_OML_swap_method)
+   if (ext && strstr(ext, "GLX_OML_swap_method")) {
+      glXGetFBConfigAttrib(dpy, fbconfig, GLX_SWAP_METHOD_OML, &attribs->swapMethod);
+   }
+#endif
+
    return True;
 }
 
@@ -960,14 +1017,17 @@ print_visual_attribs_verbose(const struct visual_attribs *attribs,
    else if (attribs->transparentType == GLX_TRANSPARENT_INDEX) {
      printf("    Transparent index=%d\n",attribs->transparentIndexValue);
    }
+#ifdef GLX_SWAP_METHOD_OML
+   printf("    SwapMethod=%s\n", swap_method_verbose_string(attribs->swapMethod));
+#endif
 }
 
 
 static void
 print_visual_attribs_short_header(void)
 {
- printf("    visual  x   bf lv rg d st  colorbuffer  sr ax dp st accumbuffer  ms  cav\n");
- printf("  id dep cl sp  sz l  ci b ro  r  g  b  a F gb bf th cl  r  g  b  a ns b eat\n");
+ printf("    visual  x   bf lv rg d st  colorbuffer  sr ax dp st accumbuffer  ms  sw cav\n");
+ printf("  id dep cl sp  sz l  ci b ro  r  g  b  a F gb bf th cl  r  g  b  a ns b ap eat\n");
  printf("----------------------------------------------------------------------------\n");
 }
 
@@ -997,10 +1057,11 @@ print_visual_attribs_short(const struct visual_attribs *attribs)
           attribs->stencilSize
           );
 
-   printf(" %2d %2d %2d %2d %2d %1d %s\n",
+   printf(" %2d %2d %2d %2d %2d %1d %c  %s\n",
           attribs->accumRedSize, attribs->accumGreenSize,
           attribs->accumBlueSize, attribs->accumAlphaSize,
           attribs->numSamples, attribs->numMultisample,
+          swap_method_short_string(attribs->swapMethod),
           caveat
           );
 }
@@ -1009,9 +1070,9 @@ print_visual_attribs_short(const struct visual_attribs *attribs)
 static void
 print_visual_attribs_long_header(void)
 {
- printf("Vis   Vis   Visual Trans  buff lev render DB ste  r   g   b   a      s  aux dep ste  accum buffer   MS   MS         \n");
- printf(" ID  Depth   Type  parent size el   type     reo sz  sz  sz  sz flt rgb buf th  ncl  r   g   b   a  num bufs caveats\n");
- printf("--------------------------------------------------------------------------------------------------------------------\n");
+ printf("Vis   Vis   Visual Trans  buff lev render DB ste  r   g   b   a      s  aux dep ste  accum buffer   MS   MS  swap        \n");
+ printf(" ID  Depth   Type  parent size el   type     reo sz  sz  sz  sz flt rgb buf th  ncl  r   g   b   a  num bufs mthd caveats\n");
+ printf("-------------------------------------------------------------------------------------------------------------------------\n");
 }
 
 
@@ -1034,7 +1095,7 @@ print_visual_attribs_long(const struct visual_attribs *attribs)
           attribs->blueSize, attribs->alphaSize
           );
 
-   printf("  %c   %c %3d %4d %2d %3d %3d %3d %3d  %2d  %2d %6s\n",
+   printf("  %c   %c %3d %4d %2d %3d %3d %3d %3d  %2d  %2d    %c %6s\n",
           attribs->floatComponents ? 'f' : '.',
           attribs->srgb ? 's' : '.',
           attribs->auxBuffers,
@@ -1043,6 +1104,7 @@ print_visual_attribs_long(const struct visual_attribs *attribs)
           attribs->accumRedSize, attribs->accumGreenSize,
           attribs->accumBlueSize, attribs->accumAlphaSize,
           attribs->numSamples, attribs->numMultisample,
+          swap_method_short_string(attribs->swapMethod),
           caveat
           );
 }
@@ -1225,6 +1287,73 @@ find_best_visual(Display *dpy, int scrnum)
    XFree(visuals);
 
    return bestVis.id;
+}
+
+
+static void
+usage(void)
+{
+   printf("Usage: glxinfo [-v] [-t] [-h] [-b] [-l] [-s] [-i] [-display <dname>]\n");
+   printf("\t-display <dname>: Print GLX visuals on specified server.\n");
+   printf("\t-i: Force an indirect rendering context.\n");
+   printf("\t-B: brief output, print only the basics.\n");
+   printf("\t-v: Print visuals info in verbose form.\n");
+   printf("\t-t: Print verbose visual information table.\n");
+   printf("\t-h: This information.\n");
+   printf("\t-b: Find the 'best' visual and print its number.\n");
+   printf("\t-l: Print interesting OpenGL limits.\n");
+   printf("\t-s: Print a single extension per line.\n");
+}
+
+
+static void
+parse_args(int argc, char *argv[], struct options *options)
+{
+   int i;
+
+   options->mode = Normal;
+   options->findBest = GL_FALSE;
+   options->limits = GL_FALSE;
+   options->singleLine = GL_FALSE;
+   options->displayName = NULL;
+   options->allowDirect = GL_TRUE;
+
+   for (i = 1; i < argc; i++) {
+      if (strcmp(argv[i], "-display") == 0 && i + 1 < argc) {
+         options->displayName = argv[i + 1];
+         i++;
+      }
+      else if (strcmp(argv[i], "-i") == 0) {
+         options->allowDirect = GL_FALSE;
+      }
+      else if (strcmp(argv[i], "-t") == 0) {
+         options->mode = Wide;
+      }
+      else if (strcmp(argv[i], "-v") == 0) {
+         options->mode = Verbose;
+      }
+      else if (strcmp(argv[i], "-B") == 0) {
+         options->mode = Brief;
+      }
+      else if (strcmp(argv[i], "-b") == 0) {
+         options->findBest = GL_TRUE;
+      }
+      else if (strcmp(argv[i], "-l") == 0) {
+         options->limits = GL_TRUE;
+      }
+      else if (strcmp(argv[i], "-h") == 0) {
+         usage();
+         exit(0);
+      }
+      else if(strcmp(argv[i], "-s") == 0) {
+         options->singleLine = GL_TRUE;
+      }
+      else {
+         printf("Unknown option `%s'\n", argv[i]);
+         usage();
+         exit(0);
+      }
+   }
 }
 
 

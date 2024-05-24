@@ -13,18 +13,13 @@
 #include <time.h>
 #include <string.h>
 
-#ifdef WIN32
+#ifdef _WIN32
 #include <windows.h>
 #include <mmsystem.h>
 #endif
 
 #include "glut_wrap.h"
 #include "readtex.h"
-
-#ifdef XMESA
-#include "GL/xmesa.h"
-static int fullscreen = 1;
-#endif
 
 #ifndef M_PI
 #define M_PI 3.1415926535
@@ -144,7 +139,7 @@ static float beta = 90.0;
 static float
 vrnd(void)
 {
-   return (((float) rand()) / RAND_MAX);
+   return ((float) rand() / (float) RAND_MAX);
 }
 
 static void
@@ -340,7 +335,7 @@ printhelp(void)
 static void
 dojoy(void)
 {
-#ifdef WIN32
+#ifdef _WIN32
    static UINT max[2] = { 0, 0 };
    static UINT min[2] = { 0xffffffff, 0xffffffff }, center[2];
    MMRESULT res;
@@ -604,12 +599,6 @@ key(unsigned char key, int x, int y)
    case 'T':
       ridtri -= 0.005;
       break;
-#ifdef XMESA
-   case ' ':
-      XMesaSetFXmode(fullscreen ? XMESA_FX_FULLSCREEN : XMESA_FX_WINDOW);
-      fullscreen = (!fullscreen);
-      break;
-#endif
    case 'n':
       NiceFog = !NiceFog;
       printf("NiceFog %d\n", NiceFog);

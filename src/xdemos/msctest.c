@@ -57,16 +57,6 @@ static int GLXExtensionSupported(Display *dpy, const char *extension)
 	return 0;
 }
 
-extern char *optarg;
-extern int optind, opterr, optopt;
-static char optstr[] = "v";
-
-static void usage(char *name)
-{
-	printf("usage: %s\n", name);
-	exit(-1);
-}
-
 int main(int argc, char *argv[])
 {
 	Display *disp;
@@ -77,21 +67,9 @@ int main(int argc, char *argv[])
 	GLXContext context;
 	int dummy;
 	Atom wmDelete;
-	int verbose = 0, width = 200, height = 200;
-	int c, i = 1;
+	int width = 200, height = 200;
+	int i = 1;
 	int64_t ust, msc, sbc;
-
-	opterr = 0;
-	while ((c = getopt(argc, argv, optstr)) != -1) {
-		switch (c) {
-		case 'v':
-			verbose = 1;
-			break;
-		default:
-			usage(argv[0]);
-			break;
-		}
-	}
 
 	disp = XOpenDisplay(NULL);
 	if (!disp) {
@@ -169,8 +147,8 @@ int main(int argc, char *argv[])
 
 	while (i++) {
 		get_sync_values(disp, winGL, &ust, &msc, &sbc);
-		fprintf(stderr, "ust: %llu, msc: %llu, sbc: %llu\n", ust, msc,
-			sbc);
+		fprintf(stderr, "ust: %"PRId64", msc: %"PRId64", sbc: %"PRId64"\n",
+			ust, msc, sbc);
 
 		/* Alternate colors to make tearing obvious */
 		if (i & 1)
@@ -181,7 +159,7 @@ int main(int argc, char *argv[])
 		glXSwapBuffers(disp, winGL);
 		wait_sync(disp, winGL, 0, 60, 0, &ust, &msc, &sbc);
 		fprintf(stderr,
-			"wait returned ust: %llu, msc: %llu, sbc: %llu\n",
+			"wait returned ust: %"PRId64", msc: %"PRId64", sbc: %"PRId64"\n",
 			ust, msc, sbc);
 		sleep(1);
 	}

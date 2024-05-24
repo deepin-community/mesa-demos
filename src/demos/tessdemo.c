@@ -156,6 +156,8 @@ static void set_screen_wh( GLsizei w, GLsizei h )
    height = h;
 }
 
+typedef void (GLAPIENTRY *tess_fn)(void);
+
 static void tesse( void )
 {
    GLUtesselator	*tobj;
@@ -168,34 +170,34 @@ static void tesse( void )
 
    if ( tobj != NULL ) {
       gluTessNormal( tobj, 0.0, 0.0, 1.0 );
-      gluTessCallback( tobj, GLU_TESS_BEGIN, glBegin );
-      gluTessCallback( tobj, GLU_TESS_VERTEX, glVertex2fv );
-      gluTessCallback( tobj, GLU_TESS_END, glEnd );
-      gluTessCallback( tobj, GLU_TESS_ERROR, error_callback );
-      gluTessCallback( tobj, GLU_TESS_COMBINE, combine_callback );
+      gluTessCallback( tobj, GLU_TESS_BEGIN, (tess_fn)glBegin );
+      gluTessCallback( tobj, GLU_TESS_VERTEX, (tess_fn)glVertex2fv );
+      gluTessCallback( tobj, GLU_TESS_END, (tess_fn)glEnd );
+      gluTessCallback( tobj, GLU_TESS_ERROR, (tess_fn)error_callback );
+      gluTessCallback( tobj, GLU_TESS_COMBINE, (tess_fn)combine_callback );
 
       glNewList( list_start, GL_COMPILE );
       gluBeginPolygon( tobj );
 
       for ( j = 0 ; j <= contour_cnt ; j++ ) {
-	 point_cnt = contours[j].point_cnt;
-	 gluNextContour( tobj, GLU_UNKNOWN );
+         point_cnt = contours[j].point_cnt;
+         gluNextContour( tobj, GLU_UNKNOWN );
 
-	 for ( i = 0 ; i < point_cnt ; i++ ) {
-	    data[0] = (GLdouble)( contours[j].p[i][0] );
-	    data[1] = (GLdouble)( contours[j].p[i][1] );
-	    data[2] = 0.0;
-	    gluTessVertex( tobj, data, contours[j].p[i] );
-	 }
+         for ( i = 0 ; i < point_cnt ; i++ ) {
+            data[0] = (GLdouble)( contours[j].p[i][0] );
+            data[1] = (GLdouble)( contours[j].p[i][1] );
+            data[2] = 0.0;
+            gluTessVertex( tobj, data, contours[j].p[i] );
+         }
       }
 
       gluEndPolygon( tobj );
       glEndList();
 
-      gluTessCallback( tobj, GLU_TESS_BEGIN, begin_callback );
-      gluTessCallback( tobj, GLU_TESS_VERTEX, vertex_callback );
-      gluTessCallback( tobj, GLU_TESS_END, end_callback );
-      gluTessCallback( tobj, GLU_TESS_EDGE_FLAG, edge_callback );
+      gluTessCallback( tobj, GLU_TESS_BEGIN, (tess_fn)begin_callback );
+      gluTessCallback( tobj, GLU_TESS_VERTEX, (tess_fn)vertex_callback );
+      gluTessCallback( tobj, GLU_TESS_END, (tess_fn)end_callback );
+      gluTessCallback( tobj, GLU_TESS_EDGE_FLAG, (tess_fn)edge_callback );
 
       glNewList( list_start + 1, GL_COMPILE );
       gluBeginPolygon( tobj );

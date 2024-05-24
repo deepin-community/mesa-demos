@@ -9,7 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <GL/glew.h>
+#include <glad/glad.h>
 #include "glut_wrap.h"
 #include "shaderutil.h"
 
@@ -67,7 +67,7 @@ init_opengl (void)
   fshad_id = CompileShaderFile (GL_FRAGMENT_SHADER, "blinking-teapot.frag");
   prog_id = LinkShaders (vshad_id, fshad_id);
 
-  UseProgram (prog_id);
+  glUseProgram (prog_id);
 
   reshape (680, 400);
 
@@ -175,7 +175,7 @@ main (int argc, char **argv)
   glutDisplayFunc (render);
   glutMouseFunc (mouse);
   glutMotionFunc (motion);
-  glewInit ();
+  gladLoadGL();
   init_opengl ();
   glutMainLoop ();
   return 0;

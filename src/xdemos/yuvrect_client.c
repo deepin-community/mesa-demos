@@ -101,7 +101,6 @@ static void Init( int argc, char *argv[] , Display *dpy, int screen, Window win)
 {
    GLuint texObj = 100;
    const char *file;
-   void *glx_memory = NULL;
 
    if (!query_extension("GL_NV_texture_rectangle")) {
       printf("Sorry, GL_NV_texture_rectangle is required\n");
@@ -256,14 +255,12 @@ event_loop(Display *dpy, Window win)
          case KeyPress:
             {
                char buffer[10];
-               int r, code;
-               code = XLookupKeysym(&event.xkey, 0);
-	       r = XLookupString(&event.xkey, buffer, sizeof(buffer),
-				 NULL, NULL);
-	       if (buffer[0] == 27) {
-		 /* escape */
-		 return;
-                 
+               XLookupKeysym(&event.xkey, 0);
+               XLookupString(&event.xkey, buffer, sizeof(buffer),
+                             NULL, NULL);
+               if (buffer[0] == 27) {
+                  /* escape */
+                  return;
                }
             }
          }

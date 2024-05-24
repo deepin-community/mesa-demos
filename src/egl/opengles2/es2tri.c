@@ -1,9 +1,25 @@
-/**************************************************************************
+/*
+ * Copyright (C) 2008  VMware, Inc.
  *
- * Copyright 2008 VMware, Inc.
- * All Rights Reserved.
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
  *
- **************************************************************************/
+ * The above copyright notice and this permission notice shall be included
+ * in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ * DEALINGS IN THE SOFTWARE.
+ *
+ */
 
 /*
  * Draw a triangle with X/EGL and OpenGL ES 2.x
@@ -213,13 +229,6 @@ create_shaders(void)
 static void
 init(void)
 {
-   typedef void (*proc)();
-
-#if 1 /* test code */
-   proc p = eglGetProcAddress("glMapBufferOES");
-   assert(p);
-#endif
-
    glClearColor(0.4, 0.4, 0.4, 0.0);
 
    create_shaders();
@@ -334,7 +343,7 @@ make_x_window(Display *x_dpy, EGLDisplay egl_dpy,
    {
       EGLint val;
       eglQueryContext(egl_dpy, ctx, EGL_CONTEXT_CLIENT_VERSION, &val);
-      assert(val == 2);
+      assert(val >= 2);
    }
 #endif
 
@@ -382,7 +391,7 @@ event_loop(Display *dpy, Window win,
       case KeyPress:
          {
             char buffer[10];
-            int r, code;
+            int code;
             code = XLookupKeysym(&event.xkey, 0);
             if (code == XK_Left) {
                view_roty += 5.0;
@@ -397,8 +406,8 @@ event_loop(Display *dpy, Window win,
                view_rotx -= 5.0;
             }
             else {
-               r = XLookupString(&event.xkey, buffer, sizeof(buffer),
-                                 NULL, NULL);
+               XLookupString(&event.xkey, buffer, sizeof(buffer),
+                             NULL, NULL);
                if (buffer[0] == 27) {
                   /* escape */
                   return;

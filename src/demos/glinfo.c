@@ -10,6 +10,9 @@
 #include <stdio.h>
 #include "glut_wrap.h"
 
+#ifndef GL_SHADING_LANGUAGE_VERSION
+#define GL_SHADING_LANGUAGE_VERSION       0x8B8C
+#endif
 
 int main( int argc, char *argv[] )
 {
@@ -22,7 +25,6 @@ int main( int argc, char *argv[] )
    printf("GL_VENDOR: %s\n", (char *) glGetString(GL_VENDOR));
    printf("GL_EXTENSIONS: %s\n", (char *) glGetString(GL_EXTENSIONS));
 
-#ifdef GL_VERSION_2_0
    {
       const GLubyte *v = glGetString(GL_VERSION);
       if (v[0] * 10 + v[2] >= 20) {
@@ -30,7 +32,6 @@ int main( int argc, char *argv[] )
          printf("GL_SHADING_LANGUAGE_VERSION = %s\n", slv);
       }
    }
-#endif
 
    printf("GLU_VERSION: %s\n", (char *) gluGetString(GLU_VERSION));
    printf("GLU_EXTENSIONS: %s\n", (char *) gluGetString(GLU_EXTENSIONS));

@@ -39,6 +39,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <X11/Xatom.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/keysym.h>
@@ -423,9 +424,24 @@ egl_manager_new(EGLNativeDisplayType xdpy, const EGLint *attrib_list,
    return eman;
 }
 
+static void
+make_fullscreen(Display *dpy, Window w)
+{
+   Atom NET_WM_STATE, NET_WM_STATE_FULLSCREEN;
+
+   NET_WM_STATE = XInternAtom(dpy, "_NET_WM_STATE", False);
+   NET_WM_STATE_FULLSCREEN = XInternAtom(dpy, "_NET_WM_STATE_FULLSCREEN", False);
+   if (NET_WM_STATE == None || NET_WM_STATE_FULLSCREEN == None)
+      return;
+
+   XChangeProperty(dpy, w, NET_WM_STATE,
+		   XA_ATOM, 32, PropModeReplace,
+		   (unsigned char *)&NET_WM_STATE_FULLSCREEN, 1);
+}
+
 static EGLBoolean
 egl_manager_create_window(struct egl_manager *eman, const char *name,
-                          EGLint w, EGLint h, EGLBoolean need_surface,
+                          EGLint *w, EGLint *h, EGLBoolean need_surface,
                           EGLBoolean fullscreen, const EGLint *attrib_list)
 {
    XVisualInfo vinfo_template, *vinfo = NULL;
@@ -461,8 +477,8 @@ egl_manager_create_window(struct egl_manager *eman, const char *name,
    root = DefaultRootWindow(eman->xdpy);
    if (fullscreen) {
       x = y = 0;
-      w = DisplayWidth(eman->xdpy, DefaultScreen(eman->xdpy));
-      h = DisplayHeight(eman->xdpy, DefaultScreen(eman->xdpy));
+      *w = DisplayWidth(eman->xdpy, DefaultScreen(eman->xdpy));
+      *h = DisplayHeight(eman->xdpy, DefaultScreen(eman->xdpy));
    }
 
    /* window attributes */
@@ -470,10 +486,9 @@ egl_manager_create_window(struct egl_manager *eman, const char *name,
    attrs.border_pixel = 0;
    attrs.colormap = XCreateColormap(eman->xdpy, root, vinfo->visual, AllocNone);
    attrs.event_mask = StructureNotifyMask | ExposureMask | KeyPressMask;
-   attrs.override_redirect = fullscreen;
-   mask = CWBackPixel | CWBorderPixel | CWColormap | CWEventMask | CWOverrideRedirect;
+   mask = CWBackPixel | CWBorderPixel | CWColormap | CWEventMask;
 
-   eman->xwin = XCreateWindow(eman->xdpy, root, x, y, w, h,
+   eman->xwin = XCreateWindow(eman->xdpy, root, x, y, *w, *h,
                               0, vinfo->depth, InputOutput,
                               vinfo->visual, mask, &attrs);
    XFree(vinfo);
@@ -483,13 +498,16 @@ egl_manager_create_window(struct egl_manager *eman, const char *name,
       XSizeHints sizehints;
       sizehints.x = x;
       sizehints.y = y;
-      sizehints.width  = w;
-      sizehints.height = h;
+      sizehints.width  = *w;
+      sizehints.height = *h;
       sizehints.flags = USSize | USPosition;
       XSetNormalHints(eman->xdpy, eman->xwin, &sizehints);
       XSetStandardProperties(eman->xdpy, eman->xwin, name, name,
                              None, (char **)NULL, 0, &sizehints);
    }
+
+   if (fullscreen)
+      make_fullscreen(eman->xdpy, eman->xwin);
 
    if (need_surface) {
       eman->win = eglCreateWindowSurface(eman->dpy, eman->conf,
@@ -649,13 +667,13 @@ event_loop(struct egl_manager *eman, EGLint surface_type, EGLint w, EGLint h)
          case ConfigureNotify:
             window_w = event.xconfigure.width;
             window_h = event.xconfigure.height;
-            if (surface_type == EGL_WINDOW_BIT)
+            if (surface_type == GEARS_WINDOW)
                reshape(window_w, window_h);
             break;
          case KeyPress:
             {
                char buffer[10];
-               int r, code;
+               int code;
                code = XLookupKeysym(&event.xkey, 0);
                if (code == XK_Left) {
                   view_roty += 5.0;
@@ -670,8 +688,8 @@ event_loop(struct egl_manager *eman, EGLint surface_type, EGLint w, EGLint h)
                   view_rotx -= 5.0;
                }
                else {
-                  r = XLookupString(&event.xkey, buffer, sizeof(buffer),
-                                    NULL, NULL);
+                  XLookupString(&event.xkey, buffer, sizeof(buffer),
+                                NULL, NULL);
                   if (buffer[0] == 27) {
                      /* escape */
                      return;
@@ -776,7 +794,7 @@ static const char *names[] = {
 int
 main(int argc, char *argv[])
 {
-   const int winWidth = 300, winHeight = 300;
+   EGLint winWidth = 300, winHeight = 300;
    Display *x_dpy;
    char *dpyName = NULL;
    struct egl_manager *eman;
@@ -851,7 +869,7 @@ main(int argc, char *argv[])
    snprintf(win_title, sizeof(win_title),
 	    "xeglgears (%s)", names[surface_type]);
 
-   ret = egl_manager_create_window(eman, win_title, winWidth, winHeight,
+   ret = egl_manager_create_window(eman, win_title, &winWidth, &winHeight,
 				   EGL_TRUE, fullscreen, NULL);
    if (!ret)
       return -1;
@@ -916,7 +934,7 @@ main(int argc, char *argv[])
 #ifdef EGL_KHR_image
       eman->image = eglCreateImageKHR_func(eman->dpy, eman->ctx,
 					   EGL_GL_RENDERBUFFER_KHR,
-					   (EGLClientBuffer) color_rb, NULL);
+					   (EGLClientBuffer)(uintptr_t)color_rb, NULL);
 #else
       fprintf(stderr, "EGL_KHR_image not found at compile time.\n");
 #endif

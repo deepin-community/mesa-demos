@@ -43,7 +43,7 @@
 #include <windows.h>
 #endif
 #define GL_GLEXT_LEGACY
-#include <GL/glew.h>    /* OpenGL Utility Toolkit header */
+#include <glad/glad.h>    /* OpenGL Utility Toolkit header */
 #include "glut_wrap.h"    /* OpenGL Utility Toolkit header */
 
 /* Some <math.h> files do not define M_PI... */
@@ -224,6 +224,8 @@ findPlane(GLfloat plane[4],
   plane[D] = -(plane[A] * v0[X] + plane[B] * v0[Y] + plane[C] * v0[Z]);
 }
 
+typedef void (GLAPIENTRY *tess_fn)(void);
+
 static void
 extrudeSolidFromPolygon(GLfloat data[][2], unsigned int dataSize,
   GLdouble thickness, GLuint side, GLuint edge, GLuint whole)
@@ -236,9 +238,9 @@ extrudeSolidFromPolygon(GLfloat data[][2], unsigned int dataSize,
   if (tobj == NULL) {
     tobj = gluNewTess();  /* create and initialize a GLU
                              polygon tesselation object */
-    gluTessCallback(tobj, GLU_BEGIN, glBegin);
-    gluTessCallback(tobj, GLU_VERTEX, glVertex2fv);  /* semi-tricky */
-    gluTessCallback(tobj, GLU_END, glEnd);
+    gluTessCallback(tobj, GLU_BEGIN, (tess_fn)glBegin);
+    gluTessCallback(tobj, GLU_VERTEX, (tess_fn)glVertex2fv);  /* semi-tricky */
+    gluTessCallback(tobj, GLU_END, (tess_fn)glEnd);
   }
   glNewList(side, GL_COMPILE);
   glShadeModel(GL_SMOOTH);  /* smooth minimizes seeing
@@ -531,21 +533,17 @@ redraw(void)
 	 to raise the depth of the projected shadow slightly so
 	 that it does not depth buffer alias with the floor. */
       if (offsetShadow) {
-	switch (polygonOffsetVersion) {
-	case EXTENSION:
-#ifdef GL_EXT_polygon_offset
-	  glEnable(GL_POLYGON_OFFSET_EXT);
-	  break;
-#endif
-#ifdef GL_VERSION_1_1
-	case ONE_DOT_ONE:
-          glEnable(GL_POLYGON_OFFSET_FILL);
-	  break;
-#endif
-	case MISSING:
-	  /* Oh well. */
-	  break;
-	}
+         switch (polygonOffsetVersion) {
+         case EXTENSION:
+            glEnable(GL_POLYGON_OFFSET_EXT);
+            break;
+         case ONE_DOT_ONE:
+            glEnable(GL_POLYGON_OFFSET_FILL);
+            break;
+         case MISSING:
+            /* Oh well. */
+            break;
+         }
       }
 
       /* Render 50% black shadow color on top of whatever the
@@ -565,21 +563,17 @@ redraw(void)
       glEnable(GL_LIGHTING);
 
       if (offsetShadow) {
-	switch (polygonOffsetVersion) {
-#ifdef GL_EXT_polygon_offset
-	case EXTENSION:
-	  glDisable(GL_POLYGON_OFFSET_EXT);
-	  break;
-#endif
-#ifdef GL_VERSION_1_1
-	case ONE_DOT_ONE:
-          glDisable(GL_POLYGON_OFFSET_FILL);
-	  break;
-#endif
-	case MISSING:
-	  /* Oh well. */
-	  break;
-	}
+         switch (polygonOffsetVersion) {
+         case EXTENSION:
+            glDisable(GL_POLYGON_OFFSET_EXT);
+            break;
+         case ONE_DOT_ONE:
+            glDisable(GL_POLYGON_OFFSET_FILL);
+            break;
+         case MISSING:
+            /* Oh well. */
+            break;
+         }
       }
       if (stencilShadow) {
         glDisable(GL_STENCIL_TEST);
@@ -813,7 +807,7 @@ main(int argc, char **argv)
 #endif
 
   glutCreateWindow("Shadowy Leapin' Lizards");
-  glewInit();
+  gladLoadGL();
 
   if (glutGet(GLUT_WINDOW_STENCIL_SIZE) <= 1) {
     printf("dinoshade: Sorry, I need at least 2 bits of stencil.\n");
@@ -849,21 +843,15 @@ main(int argc, char **argv)
   glutAttachMenu(GLUT_RIGHT_BUTTON);
   makeDinosaur();
 
-#ifdef GL_VERSION_1_1
-  if (GLEW_VERSION_1_1 && !forceExtension) {
+  if (GLAD_GL_VERSION_1_1 && !forceExtension) {
     polygonOffsetVersion = ONE_DOT_ONE;
     glPolygonOffset(-2.0, -9.0);
-  } else
-#endif
-  {
-#ifdef GL_EXT_polygon_offset
-  /* check for the polygon offset extension */
-  if (GLEW_EXT_polygon_offset) {
-    polygonOffsetVersion = EXTENSION;
-    glPolygonOffsetEXT(-2.0, -0.002);
-  } else 
-#endif
-    {
+  } else {
+    /* check for the polygon offset extension */
+    if (GLAD_GL_EXT_polygon_offset) {
+      polygonOffsetVersion = EXTENSION;
+      glPolygonOffsetEXT(-2.0, -0.002);
+    } else {
       polygonOffsetVersion = MISSING;
       printf("\ndinoshine: Missing polygon offset.\n");
       printf("           Expect shadow depth aliasing artifacts.\n\n");

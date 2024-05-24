@@ -1,0 +1,16 @@
+usr/bin/eglinfo.${DEB_HOST_MULTIARCH}
+usr/bin/eglgears_wayland.${DEB_HOST_MULTIARCH}
+usr/bin/eglgears_x11.${DEB_HOST_MULTIARCH}
+usr/bin/egltri_wayland.${DEB_HOST_MULTIARCH}
+usr/bin/egltri_x11.${DEB_HOST_MULTIARCH}
+usr/bin/es2_info.${DEB_HOST_MULTIARCH}
+usr/bin/es2gears_x11.${DEB_HOST_MULTIARCH}
+usr/bin/es2tri.${DEB_HOST_MULTIARCH}
+usr/bin/glxdemo.${DEB_HOST_MULTIARCH}
+usr/bin/glxgears.${DEB_HOST_MULTIARCH}
+usr/bin/glxheads.${DEB_HOST_MULTIARCH}
+usr/bin/glxinfo.${DEB_HOST_MULTIARCH}
+usr/bin/peglgears.${DEB_HOST_MULTIARCH}
+usr/bin/vkgears.${DEB_HOST_MULTIARCH}
+usr/bin/xeglgears.${DEB_HOST_MULTIARCH}
+usr/bin/xeglthreads.${DEB_HOST_MULTIARCH}

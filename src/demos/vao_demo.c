@@ -26,7 +26,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#include <GL/glew.h>
+#include <glad/glad.h>
 #include "glut_wrap.h"
 
 
@@ -286,8 +286,8 @@ static void Init( void )
    glEnableClientState( GL_COLOR_ARRAY );
 
    glBindVertexArrayAPPLE( 0 );
-   glVertexPointer( 4, GL_FLOAT, sizeof(GLfloat) * 4, (void *) 0xDEADBEEF );
-   glColorPointer( 4, GL_FLOAT, sizeof(GLfloat) * 4, (void *) 0xBADDC0DE );
+   glVertexPointer( 4, GL_FLOAT, sizeof(GLfloat) * 4, (void *) (uintptr_t) 0xDEADBEEF );
+   glColorPointer( 4, GL_FLOAT, sizeof(GLfloat) * 4, (void *) (uintptr_t) 0xBADDC0DE );
 }
 
 
@@ -301,7 +301,7 @@ int main( int argc, char *argv[] )
    glutKeyboardFunc( Key );
    glutDisplayFunc( Display );
    glutVisibilityFunc( Visible );
-   glewInit();
+   gladLoadGL();
    Init();
    glutMainLoop();
    return 0;

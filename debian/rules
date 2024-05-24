@@ -1,3 +1,52 @@
 #!/usr/bin/make -f
+
+include /usr/share/dpkg/architecture.mk
+
+NOT_INSTALLED = glsync \
+	glthreads \
+	glxcontexts \
+	glxgears_fbconfig \
+	glxgears_pixmap \
+	glxpbdemo \
+	glxpixmap \
+	glxsnoop \
+	glxswapcontrol \
+	manywin \
+	multictx \
+	offset \
+	overlay \
+	pbdemo \
+	pbinfo \
+	shape \
+	sharedtex \
+	sharedtex_mt \
+	texture_from_pixmap \
+	wincopy \
+	xfont \
+	xrotfontdemo
+
 %:
-	dh $@ --with=quilt
+	dh $@ --with=quilt \
+		--builddirectory=build/ \
+		--buildsystem=meson
+
+override_dh_auto_install:
+	dh_auto_install --destdir=debian/tmp
+	for app in $(NOT_INSTALLED); do \
+		rm -f debian/tmp/usr/bin/$$app; \
+	done
+
+override_dh_install:
+	for app in `ls debian/tmp/usr/bin`; do \
+		mv -f debian/tmp/usr/bin/$$app debian/tmp/usr/bin/$$app.${DEB_HOST_MULTIARCH}; \
+		ln -s /usr/bin/$$app.${DEB_HOST_MULTIARCH} debian/tmp/usr/bin/$$app; \
+		done
+
+	dh_install
+
+  ifeq ($(DEB_HOST_ARCH_OS), linux)
+	mv debian/tmp/usr/bin/es2gears_wayland \
+		debian/mesa-utils/usr/bin
+	mv debian/tmp/usr/bin/es2gears_wayland.* \
+		debian/mesa-utils-bin/usr/bin
+  endif

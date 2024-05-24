@@ -1,3 +1,6 @@
+debian/es2_info.1
+debian/es2gears.1
+debian/es2tri.1
 debian/glxdemo.1
 debian/glxgears.1
 debian/glxheads.1

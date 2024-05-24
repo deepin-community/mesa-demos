@@ -34,9 +34,8 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <malloc.h>
 #include <math.h>
-#include <GL/glew.h>
+#include "gl_wrap.h"
 #include "glut_wrap.h"
 
 
@@ -185,7 +184,7 @@ MeasureDownloadRate(void)
 
    printf("alloc %p\n", texImage);
 
-   for (i = 1; !(((unsigned long)texImage) & i); i<<=1)
+   for (i = 1; !(((uintptr_t)texImage) & i); i<<=1)
       ;
    printf("texture image alignment: %d bytes (%p)\n", i, texImage);
       
