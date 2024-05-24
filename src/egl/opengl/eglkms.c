@@ -49,8 +49,8 @@ static EGLBoolean
 setup_kms(int fd, struct kms *kms)
 {
    drmModeRes *resources;
-   drmModeConnector *connector;
-   drmModeEncoder *encoder;
+   drmModeConnector *connector = NULL;
+   drmModeEncoder *encoder = NULL;
    int i;
 
    resources = drmModeGetResources(fd);
@@ -212,6 +212,7 @@ int main(int argc, char *argv[])
 
    if (!eglChooseConfig(dpy, attribs, &config, 1, &n) || n != 1) {
       fprintf(stderr, "failed to choose argb config\n");
+      ret = -1;
       goto egl_terminate;
    }
    

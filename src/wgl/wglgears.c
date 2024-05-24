@@ -32,8 +32,8 @@
 
 #include <assert.h>
 #include <windows.h>
-#include <GL/gl.h>
-#include <GL/wglext.h>
+#include <glad/glad.h>
+#include <glad/glad_wgl.h>
 #include <math.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -41,21 +41,9 @@
 #include <ctype.h>
 #include <math.h>
 
-/* XXX this probably isn't very portable */
-#include <time.h>
-#include <unistd.h>
-
 #ifndef M_PI
 #define M_PI 3.14159265
 #endif /* !M_PI */
-
-#ifndef WGL_FRAMEBUFFER_SRGB_CAPABLE_ARB
-#define WGL_FRAMEBUFFER_SRGB_CAPABLE_ARB 0x20A9
-#endif
-
-#ifndef GL_FRAMEBUFFER_SRGB
-#define GL_FRAMEBUFFER_SRGB 0x8db9
-#endif
 
 
 /* Global vars */
@@ -65,30 +53,33 @@ static HWND hWnd;
 static HINSTANCE hInst;
 static RECT winrect;
 
-static const char *ProgramName;      /* program name (from argv[0]) */
-
 static GLfloat view_rotx = 20.0, view_roty = 30.0, view_rotz = 0.0;
 static GLint gear1, gear2, gear3;
 static GLfloat angle = 0.0;
+
+static GLboolean fullscreen = GL_FALSE;
+static GLint samples = 0;
 static GLboolean use_srgb = GL_FALSE;
+static GLboolean animate = GL_TRUE;
 
 
-static
-void usage(void)
+static void
+usage(void)
 {
-   fprintf (stderr, "usage:  %s [options]\n", ProgramName);
-   fprintf (stderr, "-info\tPrint additional GL information.\n");
-   fprintf (stderr, "-h\tPrint this help page.\n");
-   fprintf (stderr, "\n");
-   exit(EXIT_FAILURE);
+   printf("Usage:\n");
+   printf("  -srgb              run in sRGB mode\n");
+   printf("  -samples N         run in multisample mode with at least N samples\n");
+   printf("  -fullscreen        run in fullscreen mode\n");
+   printf("  -info              display OpenGL renderer info\n");
+   printf("  -geometry WxH+X+Y  window geometry\n");
 }
 
 
 /* return current time (in seconds) */
-static int
+static double
 current_time(void)
 {
-   return (int)time(NULL);
+   return timeGetTime() / 1000.0;
 }
 
 
@@ -279,6 +270,14 @@ reshape(int width, int height)
 }
 
 
+static GLfloat
+srgb_to_linear(GLfloat c)
+{
+   if (c <= 0.04045f)
+      return c / 12.92f;
+   return powf((c + 0.055f) / 1.055f, 2.4f);
+}
+
 static void
 init(void)
 {
@@ -286,6 +285,7 @@ init(void)
    static GLfloat red[4] = { 0.8, 0.1, 0.0, 1.0 };
    static GLfloat green[4] = { 0.0, 0.8, 0.2, 1.0 };
    static GLfloat blue[4] = { 0.2, 0.2, 1.0, 1.0 };
+   int i;
 
    glLightfv(GL_LIGHT0, GL_POSITION, pos);
    glEnable(GL_CULL_FACE);
@@ -293,6 +293,11 @@ init(void)
    glEnable(GL_LIGHT0);
    glEnable(GL_DEPTH_TEST);
    if (use_srgb) {
+      for (i = 0; i < 3; ++i) {
+         red[i] = srgb_to_linear(red[i]);
+         green[i] = srgb_to_linear(green[i]);
+         blue[i] = srgb_to_linear(blue[i]);
+      }
       glEnable(GL_FRAMEBUFFER_SRGB);
    }
 
@@ -327,7 +332,10 @@ WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
       PostQuitMessage(0);
       return 0;
    case WM_SIZE:
-      reshape(LOWORD(lParam), HIWORD(lParam));
+      /* This can be reached before wglMakeCurrent */
+      if (wglGetCurrentContext() != NULL) {
+         reshape(LOWORD(lParam), HIWORD(lParam));
+      }
       return 0;
    case WM_KEYDOWN:
       if (wParam == VK_LEFT)
@@ -340,7 +348,14 @@ WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
          view_rotx -= 5.0;
       else if (wParam == VK_ESCAPE)
          PostQuitMessage(0);
+      else if (wParam == 'A')
+         animate = !animate;
       return 0;
+#if WINVER >= 0x0605
+   case WM_NCCREATE:
+       EnableNonClientDpiScaling(hWnd);
+       break;
+#endif
    }
 
    return DefWindowProc(hWnd, uMsg, wParam, lParam);
@@ -392,35 +407,47 @@ make_window(const char *name, int x, int y, int width, int height)
    wc.hbrBackground = NULL;
    wc.lpszMenuName = NULL;
    wc.lpszClassName = name;
-   if (!RegisterClass(&wc)) {
-      printf("failed to register class\n");
-      exit(0);
-   }
+   RegisterClass(&wc);
 
    dwExStyle = WS_EX_APPWINDOW | WS_EX_WINDOWEDGE;
-   dwStyle = WS_OVERLAPPEDWINDOW;
-   AdjustWindowRectEx(&winrect, dwStyle, FALSE, dwExStyle);
-
-   if (!(hWnd = CreateWindowEx(dwExStyle, name, name,
-                               WS_CLIPSIBLINGS | WS_CLIPCHILDREN | dwStyle,
-                               0, 0,
-                               winrect.right - winrect.left,
-                               winrect.bottom - winrect.top,
-                               NULL, NULL, hInst, NULL))) {
-      printf("failed to create window\n");
-      exit(0);
+   if (!fullscreen) {
+      dwStyle = WS_OVERLAPPEDWINDOW;
+      AdjustWindowRectEx(&winrect, dwStyle, FALSE, dwExStyle);
+   }
+   else {
+      dwStyle = WS_POPUP;
    }
 
-   if (!(hDC = GetDC(hWnd)) ||
-       !(pixelFormat = ChoosePixelFormat(hDC, &pfd)) ||
-       !(SetPixelFormat(hDC, pixelFormat, &pfd)) ||
-       !(hRC = wglCreateContext(hDC)) ||
-       !(wglMakeCurrent(hDC, hRC))) {
-      printf("failed to initialise opengl\n");
-      exit(0);
+   hWnd = CreateWindowEx(dwExStyle, name, name,
+                         WS_CLIPSIBLINGS | WS_CLIPCHILDREN | dwStyle,
+                         x, y,
+                         winrect.right - winrect.left,
+                         winrect.bottom - winrect.top,
+                         NULL, NULL, hInst, NULL);
+
+   if (fullscreen) {
+      DEVMODE devmode;
+      memset(&devmode, 0, sizeof(DEVMODE));
+      devmode.dmSize = sizeof(DEVMODE);
+      devmode.dmPelsWidth = width;
+      devmode.dmPelsHeight = height;
+      devmode.dmBitsPerPel = 24;
+      devmode.dmFields = DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT;
+      ChangeDisplaySettings(&devmode, CDS_FULLSCREEN);
    }
 
-   if (use_srgb) {
+   hDC = GetDC(hWnd);
+   pixelFormat = ChoosePixelFormat(hDC, &pfd);
+   if (!pixelFormat)
+      goto nopixelformat;
+
+   SetPixelFormat(hDC, pixelFormat, &pfd);
+   hRC = wglCreateContext(hDC);
+   wglMakeCurrent(hDC, hRC);
+
+   gladLoadWGL(hDC);
+
+   if (use_srgb || samples > 0) {
       /* We can't query/use extension functions until after we've
        * created and bound a rendering context (done above).
        *
@@ -428,32 +455,39 @@ make_window(const char *name, int x, int y, int width, int height)
        * create a new device context in order to use the pixel format returned
        * from wglChoosePixelFormatARB, and then create a new window.
        */
-      PFNWGLCHOOSEPIXELFORMATARBPROC wglChoosePixelFormatARB_func =
-         (PFNWGLCHOOSEPIXELFORMATARBPROC)
-         wglGetProcAddress("wglChoosePixelFormatARB");
-      assert(wglChoosePixelFormatARB_func);
+      assert(GLAD_WGL_ARB_create_context);
 
-      static const int int_attribs[] = {
+      int int_attribs[64] = {
          WGL_SUPPORT_OPENGL_ARB, TRUE,
          WGL_DRAW_TO_WINDOW_ARB, TRUE,
          WGL_COLOR_BITS_ARB, 24,  // at least 24-bits of RGB
          WGL_DEPTH_BITS_ARB, 24,
          WGL_DOUBLE_BUFFER_ARB, TRUE,
          WGL_FRAMEBUFFER_SRGB_CAPABLE_ARB, TRUE,
-         0
       };
+      int i = 10;
+
+      if (use_srgb) {
+         int_attribs[i++] = WGL_FRAMEBUFFER_SRGB_CAPABLE_ARB;
+         int_attribs[i++] = TRUE;
+      }
+      if (samples > 0) {
+         int_attribs[i++] = WGL_SAMPLE_BUFFERS_ARB;
+         int_attribs[i++] = 1;
+         int_attribs[i++] = WGL_SAMPLES_ARB;
+         int_attribs[i++] = samples;
+      }
+
+      int_attribs[i++] = 0;
+
       static const float float_attribs[] = { 0 };
       UINT numFormats;
 
       pixelFormat = 0;
-      if (!wglChoosePixelFormatARB_func(hDC, int_attribs, float_attribs, 1,
-                                        &pixelFormat, &numFormats)) {
-         printf("wglChoosePixelFormatARB failed\n");
-         exit(0);
-      }
-      assert(numFormats > 0);
-      printf("Chose sRGB pixel format %d (0x%x)\n", pixelFormat, pixelFormat);
-      fflush(stdout);
+      if (!wglChoosePixelFormatARB(hDC, int_attribs, float_attribs, 1,
+                                   &pixelFormat, &numFormats) ||
+          !numFormats)
+         goto nopixelformat;
 
       PIXELFORMATDESCRIPTOR newPfd;
       DescribePixelFormat(hDC, pixelFormat, sizeof(pfd), &newPfd);
@@ -463,37 +497,95 @@ make_window(const char *name, int x, int y, int width, int height)
       wglDeleteContext(hRC);
       DeleteDC(hDC);
 
-      if (!(hWnd = CreateWindowEx(dwExStyle, name, name,
-                                  WS_CLIPSIBLINGS | WS_CLIPCHILDREN | dwStyle,
-                                  0, 0,
-                                  winrect.right - winrect.left,
-                                  winrect.bottom - winrect.top,
-                                  NULL, NULL, hInst, NULL))) {
-         printf("failed to create window\n");
-         exit(0);
-      }
+      DestroyWindow(hWnd);
+      hWnd = CreateWindowEx(dwExStyle, name, name,
+                            WS_CLIPSIBLINGS | WS_CLIPCHILDREN | dwStyle,
+                            x, y,
+                            winrect.right - winrect.left,
+                            winrect.bottom - winrect.top,
+                            NULL, NULL, hInst, NULL);
 
-      if (!(hDC = GetDC(hWnd))) {
-         printf("GetDC() failed.\n");
-         exit(0);
-      }
-      if (!SetPixelFormat(hDC, pixelFormat, &pfd)) {
-         printf("SetPixelFormat failed %d\n", (int) GetLastError());
-         exit(0);
-      }
-      if (!(hRC = wglCreateContext(hDC))) {
-         printf("wglCreateContext() failed\n");
-         exit(0);
-      }
-      if (!wglMakeCurrent(hDC, hRC)) {
-         printf("wglMakeCurrent() failed\n");
-         exit(0);
-      }
+      hDC = GetDC(hWnd);
+      SetPixelFormat(hDC, pixelFormat, &pfd);
+      hRC = wglCreateContext(hDC);
+      wglMakeCurrent(hDC, hRC);
    }
+
+   gladLoadGL();
 
    ShowWindow(hWnd, SW_SHOW);
    SetForegroundWindow(hWnd);
    SetFocus(hWnd);
+   return;
+
+nopixelformat:
+   printf("Error: couldn't get an RGB, Double-buffered");
+   if (samples > 0)
+      printf(", Multisample");
+   if (use_srgb)
+      printf(", sRGB");
+   printf(" pixelformat\n");
+   exit(1);
+}
+
+static void
+draw_frame()
+{
+   static int frames = 0;
+   static double tRot0 = -1.0, tRate0 = -1.0;
+   double dt, t = current_time();
+
+   if (tRot0 < 0.0)
+      tRot0 = t;
+   dt = t - tRot0;
+   tRot0 = t;
+
+   if (animate) {
+      /* advance rotation for next frame */
+      angle += 70.0 * dt;  /* 70 degrees per second */
+      if (angle > 3600.0)
+         angle -= 3600.0;
+   }
+
+   draw();
+   SwapBuffers(hDC);
+
+   frames++;
+
+   if (tRate0 < 0.0)
+      tRate0 = t;
+   if (t - tRate0 >= 5.0) {
+      GLfloat seconds = t - tRate0;
+      GLfloat fps = frames / seconds;
+      printf("%d frames in %3.1f seconds = %6.3f FPS\n", frames, seconds,
+             fps);
+      fflush(stdout);
+      tRate0 = t;
+      frames = 0;
+   }
+}
+
+/**
+ * Attempt to determine whether or not the display is synched to vblank.
+ */
+static void
+query_vsync()
+{
+   int interval = 0;
+   if (GLAD_WGL_EXT_swap_control) {
+      interval = wglGetSwapIntervalEXT();
+   }
+
+   if (interval > 0) {
+      printf("Running synchronized to the vertical refresh.  The framerate should be\n");
+      if (interval == 1) {
+         printf("approximately the same as the monitor refresh rate.\n");
+      }
+      else if (interval > 1) {
+         printf("approximately 1/%d the monitor refresh rate.\n",
+                interval);
+      }
+   }
 }
 
 
@@ -501,8 +593,10 @@ static void
 event_loop(void)
 {
    MSG msg;
-   int t, t0 = current_time();
-   int frames = 0;
+
+   TIMECAPS tc;
+   timeGetDevCaps(&tc, sizeof(tc));
+   timeBeginPeriod(tc.wPeriodMin);
 
    while(1) {
       if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
@@ -511,50 +605,109 @@ event_loop(void)
          DispatchMessage(&msg);
       }
 
-      angle += 2.0;
-      draw();
-      SwapBuffers(hDC);
-
-      /* calc framerate */
-      t = current_time();
-      frames++;
-      if (t - t0 >= 5.0) {
-         GLfloat s = t - t0;
-         GLfloat fps = frames / s;
-         printf("%d frames in %3.1f seconds = %6.3f FPS\n", frames, s, fps);
-         t0 = t;
-         frames = 0;
-      }
+      draw_frame();
    }
+
+   timeEndPeriod(tc.wPeriodMin);
+}
+
+
+static void
+parse_geometry(const char *str, int *x, int *y, unsigned int *w, unsigned int *h)
+{
+   char *end;
+   if (*str == '=')
+      str++;
+
+   long tw = LONG_MAX;
+   if (isdigit(*str)) {
+      tw = strtol(str, &end, 10);
+      if (str == end)
+         return;
+      str = end;
+   }
+
+   long th = LONG_MAX;
+   if (tolower(*str) == 'x') {
+      str++;
+      th = strtol(str, &end, 10);
+      if (str== end)
+         return;
+      str = end;
+   }
+
+   long tx = LONG_MAX;
+   if (*str == '+' || *str == '-') {
+      tx = strtol(str, &end, 10);
+      if (str == end)
+         return;
+      str = end;
+   }
+
+   long ty = LONG_MAX;
+   if (*str == '+' || *str == '-') {
+      ty = strtol(str, &end, 10);
+      if (str == end)
+         return;
+      str = end;
+   }
+
+   if (tw < LONG_MAX)
+      *w = tw;
+   if (th < LONG_MAX)
+      *h = th;
+   if (tx < INT_MAX)
+      *x = tx;
+   if (ty < INT_MAX)
+      *y = ty;
 }
 
 
 int
 main(int argc, char *argv[])
 {
+   unsigned int winWidth = 300, winHeight = 300;
+   int x = 0, y = 0;
    int i;
    GLboolean printInfo = GL_FALSE;
-
-   ProgramName = argv[0];
 
    for (i = 1; i < argc; i++) {
       if (strcmp(argv[i], "-info") == 0) {
          printInfo = GL_TRUE;
       }
-      else if (strcmp(argv[i], "-h") == 0) {
-         usage();
-      }
       else if (strcmp(argv[i], "-srgb") == 0) {
          use_srgb = GL_TRUE;
       }
+      else if (i < argc - 1 && strcmp(argv[i], "-samples") == 0) {
+         samples = strtod(argv[i + 1], NULL);
+         ++i;
+      }
+      else if (strcmp(argv[i], "-fullscreen") == 0) {
+         fullscreen = GL_TRUE;
+      }
+      else if (strcmp(argv[i], "-geometry") == 0) {
+         parse_geometry(argv[i+1], &x, &y, &winWidth, &winHeight);
+         i++;
+      }
       else {
-        fprintf(stderr, "%s: Unsupported option '%s'.\n", ProgramName, argv[i]);
-        usage();
+         usage();
+         return -1;
       }
    }
 
-   make_window("glxgears", 0, 0, 300, 300);
-   reshape(300, 300);
+#if WINVER >= 0x0605
+   SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE);
+#endif
+
+   if (fullscreen) {
+       x = 0; y = 0;
+       winWidth = GetSystemMetrics(SM_CXSCREEN);
+       winHeight = GetSystemMetrics(SM_CYSCREEN);
+   }
+
+   make_window("wglgears", x, y, winWidth, winHeight);
+   reshape(winWidth, winHeight);
+   query_vsync();
 
    if (printInfo) {
       printf("GL_RENDERER   = %s\n", (char *) glGetString(GL_RENDERER));

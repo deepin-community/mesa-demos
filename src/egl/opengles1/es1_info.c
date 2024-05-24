@@ -1,5 +1,24 @@
 /*
- * Copyright (C) 2008  Tunsgten Graphics,Inc.   All Rights Reserved.
+ * Copyright (C) 2008  Tungsten Graphics,Inc.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included
+ * in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ * DEALINGS IN THE SOFTWARE.
+ *
  */
 
 /*
@@ -85,7 +104,7 @@ info(EGLDisplay egl_dpy)
    printf("EGL_VENDOR: %s\n", s);
 
    s = eglQueryString(egl_dpy, EGL_EXTENSIONS);
-   printf("EGL_EXTENSIONS:\n", s);
+   printf("EGL_EXTENSIONS:\n");
    print_extension_list((char *) s);
 
    s = eglQueryString(egl_dpy, EGL_CLIENT_APIS);
@@ -93,11 +112,15 @@ info(EGLDisplay egl_dpy)
 
 const char *glGetString (int name);
 
+#define GL_VENDOR                         0x1F00
 #define GL_RENDERER                       0x1F01
 #define GL_VERSION                        0x1F02
 #define GL_EXTENSIONS                     0x1F03
+#define GL_SHADING_LANGUAGE_VERSION       0x8B8C
 
+   printf("GL_VENDOR: %s\n", (char *) glGetString(GL_VENDOR));
    printf("GL_VERSION: %s\n", (char *) glGetString(GL_VERSION));
+   printf("GL_SHADING_LANGUAGE_VERSION: %s\n", (char *) glGetString(GL_SHADING_LANGUAGE_VERSION));
    printf("GL_RENDERER: %s\n", (char *) glGetString(GL_RENDERER));
    printf("GL_EXTENSIONS:\n");
    print_extension_list((char *) glGetString(GL_EXTENSIONS));
@@ -282,6 +305,7 @@ main(int argc, char *argv[])
 
    info(egl_dpy);
 
+   eglMakeCurrent(egl_dpy, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
    eglDestroyContext(egl_dpy, egl_ctx);
    eglDestroySurface(egl_dpy, egl_surf);
    eglTerminate(egl_dpy);

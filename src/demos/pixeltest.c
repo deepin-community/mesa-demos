@@ -11,7 +11,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
-#include <GL/glew.h> /* for GL_UNSIGNED_SHORT_5_6_5 */
+#include "gl_wrap.h" /* for GL_UNSIGNED_SHORT_5_6_5 */
 #include "glut_wrap.h"
 
 
@@ -150,7 +150,7 @@ plot(int x, int y, GLushort color)
             /* draws the pixel centre */
             myImage[x*ZOOM+i][y*ZOOM+j] = 0;
          }
-	 else if ( (i + j == 15) || fabsf(i - j) == 16 || (i + j == 47) ){
+	 else if ( (i + j == 15) || abs(i - j) == 16 || (i + j == 47) ){
 	    /* draws the pixel diamond, to test diamond exit rule */
             myImage[x*ZOOM+i][y*ZOOM+j] = 0;
          }

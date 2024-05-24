@@ -437,14 +437,6 @@ float n[6][3] = {
     }
 };
 
-GLfloat identity[16] = {
-    1, 0, 0, 0,
-    0, 1, 0, 0,
-    0, 0, 1, 0,
-    0, 0, 0, 1,
-};
-
-
 static void BuildCylinder(int numEdges)
 {
     int i, top = 1.0, bottom = -1.0;
@@ -655,26 +647,6 @@ static void SetDefaultSettings(void)
     tWrapMode = repeat;
     textureEnvironment = modulate;
     autoRotate = GL_TRUE;
-}
-
-static unsigned char *AlphaPadImage(int bufSize, unsigned char *inData, int alpha)
-{
-    unsigned char *outData, *out_ptr, *in_ptr;
-    int i;
-
-    outData = (unsigned char *) malloc(bufSize * 4);
-    out_ptr = outData;
-    in_ptr = inData;
-
-    for (i = 0; i < bufSize; i++) {
-	*out_ptr++ = *in_ptr++;
-	*out_ptr++ = *in_ptr++;
-	*out_ptr++ = *in_ptr++;
-	*out_ptr++ = alpha;
-    }
-
-    free (inData);
-    return outData;
 }
 
 static void Init(void)

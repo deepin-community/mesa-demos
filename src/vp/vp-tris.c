@@ -6,12 +6,12 @@
 #include <stdlib.h>
 #include <math.h>
 
-#ifndef WIN32
+#ifndef _WIN32
 #include <unistd.h>
 #include <signal.h>
 #endif
 
-#include <GL/glew.h>
+#include <glad/glad.h>
 #include "glut_wrap.h"
 
 static const char *filename = NULL;
@@ -317,7 +317,7 @@ int main( int argc, char *argv[] )
    glutInitWindowSize( 250, 250 );
    glutInitDisplayMode( GLUT_RGB | GLUT_SINGLE | GLUT_DEPTH );
    glutCreateWindow(argv[argc-1]);
-   glewInit();
+   gladLoadGL();
    glutReshapeFunc( Reshape );
    glutKeyboardFunc( Key );
    glutDisplayFunc( Display );

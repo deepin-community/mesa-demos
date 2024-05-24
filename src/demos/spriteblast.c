@@ -22,7 +22,7 @@
 #ifdef _WIN32
 #include <windows.h>
 #endif
-#include <GL/glew.h>
+#include <glad/glad.h>
 #include "glut_wrap.h"
 
 /* Some <math.h> files do not define M_PI... */
@@ -113,7 +113,7 @@ makeFragShader(void)
 {
    GLint stat;
 
-   HaveShaders = GLEW_VERSION_2_0;
+   HaveShaders = GLAD_GL_VERSION_2_0;
    if (!HaveShaders)
       return;
 
@@ -442,12 +442,8 @@ key(unsigned char c, int x, int y)
   case 'o':
   case 'O':
     org ^= 1;
-#ifdef GL_VERSION_2_0
-#ifdef GL_ARB_point_parameters
     glPointParameteri(GL_POINT_SPRITE_COORD_ORIGIN,
                       org ? GL_LOWER_LEFT : GL_UPPER_LEFT);
-#endif
-#endif
     glutPostRedisplay();
     break;
   case 't':
@@ -618,7 +614,7 @@ main(int argc, char **argv)
     }
   }
   glutCreateWindow("sprite blast");
-  glewInit();
+  gladLoadGL();
   glutReshapeFunc(reshape);
   glutDisplayFunc(redraw);
   glutMouseFunc(mouse);
@@ -656,9 +652,7 @@ main(int argc, char **argv)
   glEnable(GL_POINT_SMOOTH);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glPointSize(32.0);
-#ifdef GL_ARB_point_parameters
   glPointParameterfvARB(GL_POINT_DISTANCE_ATTENUATION_ARB, theQuad);
-#endif
 
   glutMainLoop();
   return 0;             /* ANSI C requires main to return int. */

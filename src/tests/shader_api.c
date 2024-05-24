@@ -5,7 +5,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <GL/glew.h>
+#include <glad/glad.h>
 #include "glut_wrap.h"
 
 static void assert_test(const char *file, int line, int cond, const char *msg)
@@ -42,30 +42,33 @@ static void assert_error_test(const char *file, int line, GLenum expect)
 
 #define assert_error(err) assert_error_test(__FILE__, __LINE__, (err))
 
-static void check_status(GLuint id, GLenum pname, void (GLAPIENTRY *query)(GLuint, GLenum, GLint *))
-{
-    GLint status;
-
-    query(id, pname, &status);
-    if (!status)
-    {
-        char info[65536];
-
-        fprintf(stderr, "Compilation/link failure:\n");
-        glGetInfoLogARB(id, sizeof(info), NULL, info);
-        fprintf(stderr, "%s\n", info);
-        exit(1);
-    }
-}
-
 static void check_compile_status(GLuint id)
 {
-   check_status(id, GL_COMPILE_STATUS, glGetShaderiv);
+   GLint status;
+
+   glGetShaderiv(id, GL_COMPILE_STATUS, &status);
+   if (!status) {
+      char info[65536];
+      fprintf(stderr, "Compilation failure:\n");
+      glGetShaderInfoLog(id, sizeof(info), NULL, info);
+      fprintf(stderr, "%s\n", info);
+      exit(1);
+   }
 }
 
 static void check_link_status(GLuint id)
 {
-   check_status(id, GL_LINK_STATUS, glGetProgramiv);
+   GLint status;
+
+   glGetProgramiv(id, GL_LINK_STATUS, &status);
+   if (!status) {
+      char info[65536];
+
+      fprintf(stderr, "Compilation/link failure:\n");
+      glGetProgramInfoLog(id, sizeof(info), NULL, info);
+      fprintf(stderr, "%s\n", info);
+      exit(1);
+   }
 }
 
 static GLuint make_shader(GLenum type, const char *src)
@@ -324,9 +327,9 @@ int main(int argc, char **argv)
 {
    glutInit(&argc, argv);
    glutCreateWindow("Mesa bug demo");
-   glewInit();
+   gladLoadGL();
 
-   if (!GLEW_VERSION_2_0) {
+   if (!GLAD_GL_VERSION_2_0) {
       printf("Sorry, this test requires OpenGL 2.x GLSL support\n");
       exit(0);
    }

@@ -28,11 +28,15 @@ static void render_image( void )
    GLfloat light_diffuse[] = { 1.0, 1.0, 1.0, 1.0 };
    GLfloat light_specular[] = { 1.0, 1.0, 1.0, 1.0 };
    GLfloat light_position[] = { 1.0, 1.0, 1.0, 0.0 };
+#if 0
    GLfloat red_mat[]   = { 1.0, 0.2, 0.2, 1.0 };
+#endif
    GLfloat green_mat[] = { 0.2, 1.0, 0.2, 0.5 };
    GLfloat blue_mat[]  = { 0.2, 0.2, 1.0, 1.0 };
+#if 0
    GLfloat white_mat[]  = { 1.0, 1.0, 1.0, 1.0 };
    GLfloat purple_mat[] = { 1.0, 0.2, 1.0, 1.0 };
+#endif
    GLUquadricObj *qobj = gluNewQuadric();
 
    glLightfv(GL_LIGHT0, GL_AMBIENT, light_ambient);
@@ -138,6 +142,7 @@ static void render_image( void )
 }
 
 
+#ifdef SAVE_TARGA
 
 static void
 write_targa(const char *filename, const GLfloat *buffer, int width, int height)
@@ -185,6 +190,7 @@ write_targa(const char *filename, const GLfloat *buffer, int width, int height)
    }
 }
 
+#else
 
 static void
 write_ppm(const char *filename, const GLfloat *buffer, int width, int height)
@@ -245,6 +251,7 @@ write_ppm(const char *filename, const GLfloat *buffer, int width, int height)
    }
 }
 
+#endif
 
 
 int main( int argc, char *argv[] )

@@ -12,17 +12,12 @@
 #include <time.h>
 #include <string.h>
 
-#ifdef WIN32
+#ifdef _WIN32
 #include <windows.h>
 #endif
 
 #include "glut_wrap.h"
 #include "readtex.h"
-
-#ifdef XMESA
-#include "GL/xmesa.h"
-static int fullscreen=1;
-#endif
 
 static int WIDTH=640;
 static int HEIGHT=480;
@@ -218,12 +213,6 @@ static void key(unsigned char k, int x, int y)
       bfcull=1;
     }
     break;
-#ifdef XMESA
-  case ' ':
-    XMesaSetFXmode(fullscreen ? XMESA_FX_FULLSCREEN : XMESA_FX_WINDOW);
-    fullscreen=(!fullscreen);
-    break;
-#endif
   }
 }
 
@@ -382,7 +371,7 @@ static void drawlight2(void)
 
 static void dojoy(void)
 {
-#ifdef WIN32
+#ifdef _WIN32
   static UINT max[2]={0,0};
   static UINT min[2]={0xffffffff,0xffffffff},center[2];
   MMRESULT res;

@@ -41,7 +41,7 @@
 #include <string.h>
 #include <X11/Xlib.h>
 #include <X11/keysym.h>
-#include <GL/glew.h>
+#include <glad/glad.h>
 #include <GL/glx.h>
 
 
@@ -382,7 +382,7 @@ event_loop(Display *dpy, Window win)
          case KeyPress:
             {
                char buffer[10];
-               int r, code;
+               int code;
                code = XLookupKeysym(&event.xkey, 0);
                if (code == XK_Left) {
                   view_roty += 5.0;
@@ -397,8 +397,8 @@ event_loop(Display *dpy, Window win)
                   view_rotx -= 5.0;
                }
                else {
-                  r = XLookupString(&event.xkey, buffer, sizeof(buffer),
-                                    NULL, NULL);
+                  XLookupString(&event.xkey, buffer, sizeof(buffer),
+                                NULL, NULL);
                   if (buffer[0] == 27) {
                      /* escape */
                      return;
@@ -456,7 +456,7 @@ main(int argc, char *argv[])
    Display *dpy;
    Window win;
    GLXContext ctx;
-   char *dpyName = ":0";
+   char *dpyName = NULL;
    GLboolean printInfo = GL_FALSE;
    int i;
 
@@ -480,7 +480,7 @@ main(int argc, char *argv[])
    XMapWindow(dpy, win);
    glXMakeCurrent(dpy, win, ctx);
 
-   glewInit();
+   gladLoadGL();
 
    if (printInfo) {
       printf("GL_RENDERER   = %s\n", (char *) glGetString(GL_RENDERER));

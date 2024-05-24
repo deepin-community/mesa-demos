@@ -1,0 +1,131 @@
+variables:
+  FDO_UPSTREAM_REPO: mesa/demos
+
+include:
+  - project: 'freedesktop/ci-templates'
+    ref: 3f37cc0e461f5b0c815409bf6f55759f26a74e9c
+    file: '/templates/debian.yml'
+
+stages:
+  - container
+  - build
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+    - if: $CI_PIPELINE_SOURCE == 'push'
+
+# When & how to run the CI
+.ci-run-policy:
+  retry:
+    max: 2
+    when:
+      - runner_system_failure
+  # Cancel CI run if a newer commit is pushed to the same branch
+  interruptible: true
+
+
+# CONTAINERS
+
+# Debian 11 based x86 build image
+x86_build:
+  stage: container
+  extends:
+    - .fdo.container-build@debian
+    - .ci-run-policy
+  variables:
+    FDO_DISTRIBUTION_VERSION: bullseye-slim
+    FDO_REPO_SUFFIX: "debian/$CI_JOB_NAME"
+    # No need to pull the whole repo to build the container image
+    GIT_STRATEGY: none
+    # /!\ Bump the TAG when modifying the DEBS
+    FDO_DISTRIBUTION_TAG: &x86_build "2023-02-17-clang"
+    FDO_DISTRIBUTION_PACKAGES: >-
+      build-essential
+      clang
+      python3-pip
+      pkg-config
+      ninja-build
+      git
+      glslang-tools
+      mingw-w64
+      mingw-w64-tools
+      wine
+
+      freeglut3-dev
+      libcairo2-dev
+      libdbus-1-dev
+      libdrm-dev
+      libegl-dev
+      libgbm-dev
+      libgl-dev
+      libgles-dev
+      libosmesa6-dev
+      libpango1.0-dev
+      libpangocairo-1.0-0
+      libudev-dev
+      libvulkan-dev
+      libwayland-dev
+      libwayland-cursor0
+      libx11-dev
+      libxcb1-dev
+      libxkbcommon-dev
+      libxkbcommon-x11-dev
+      wayland-protocols
+    FDO_DISTRIBUTION_EXEC: pip3 install meson==0.59.4
+
+.use-x86_build:
+  variables:
+    TAG: *x86_build
+  image: "$CI_REGISTRY_IMAGE/debian/x86_build:$TAG"
+  needs:
+    - x86_build
+
+
+# BUILD
+
+.build:
+  stage: build
+  extends:
+    - .ci-run-policy
+  variables:
+    GIT_DEPTH: 10
+  script:
+    - meson _build
+      --prefix $PWD/install
+      --buildtype debug
+      ${EXTRA_OPTION}
+    - ninja -C _build -j${FDO_CI_CONCURRENT:-4}
+    - ninja -C _build install
+
+.build-linux:
+  extends:
+    - .use-x86_build
+    - .build
+  variables:
+    EXTRA_OPTION: >
+      -Dauto_features=enabled
+      -Dlibdecor-0:gtk=disabled
+      -Dlibdecor-0:demo=false
+
+build-gcc:
+  extends:
+    - .build-linux
+
+build-clang:
+  extends:
+    - .build-linux
+  variables:
+    CC: clang
+    CXX: clang++
+
+build-mingw:
+  extends:
+    - .use-x86_build
+    - .build
+  before_script:
+    - .gitlab-ci/prepare-glut-mingw.sh
+  variables:
+    EXTRA_OPTION: >
+      --cross-file=.gitlab-ci/x86_64-w64-mingw32
+      -Dglut=enabled

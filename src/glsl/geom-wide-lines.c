@@ -10,7 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#include <GL/glew.h>
+#include <glad/glad.h>
 #include "glut_wrap.h"
 #include "shaderutil.h"
 
@@ -26,10 +26,6 @@ static GLfloat Xrot = 0, Yrot = 0;
 static int uLineWidth = -1, uInverseViewportSize = -1;
 
 static int NumPoints = 50;
-
-static const GLfloat Red[4] = {1, 0, 0, 1};
-static const GLfloat Green[4] = {0, 1, 0, 0};
-
 
 static void
 CheckError(int line)
@@ -273,11 +269,11 @@ Init(void)
    /* check link */
    {
       GLint stat;
-      GetProgramiv(Program, GL_LINK_STATUS, &stat);
+      glGetProgramiv(Program, GL_LINK_STATUS, &stat);
       if (!stat) {
          GLchar log[1000];
          GLsizei len;
-         GetProgramInfoLog(Program, 1000, &len, log);
+         glGetProgramInfoLog(Program, 1000, &len, log);
          fprintf(stderr, "Shader link error:\n%s\n", log);
       }
    }
@@ -330,7 +326,7 @@ main(int argc, char *argv[])
    glutInitWindowSize(WinWidth, WinHeight);
    glutInitDisplayMode(GLUT_RGB | GLUT_DEPTH | GLUT_DOUBLE);
    Win = glutCreateWindow(argv[0]);
-   glewInit();
+   gladLoadGL();
    glutReshapeFunc(Reshape);
    glutKeyboardFunc(Key);
    glutDisplayFunc(Redisplay);

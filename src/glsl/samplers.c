@@ -39,7 +39,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <GL/glew.h>
+#include <glad/glad.h>
 #include "glut_wrap.h"
 #include "shaderutil.h"
 
@@ -317,6 +317,7 @@ InitProgram(void)
       char uname[10];
       GLint loc;
 
+      assert(s <= MAX_SAMPLERS);
 #ifndef SAMPLERS_ARRAY
       sprintf(uname, "tex%d", s);
 #else
@@ -362,7 +363,7 @@ main(int argc, char *argv[])
    glutInitWindowSize(500, 400);
    glutInitDisplayMode(GLUT_RGB | GLUT_DEPTH | GLUT_DOUBLE);
    glutCreateWindow(Demo);
-   glewInit();
+   gladLoadGL();
    glutReshapeFunc(Reshape);
    glutKeyboardFunc(key);
    glutSpecialFunc(specialkey);

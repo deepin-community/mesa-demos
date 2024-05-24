@@ -31,6 +31,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <X11/Xatom.h>
 #include <X11/Xlib.h>
 #include <X11/keysym.h>
 #include <GL/gl.h>
@@ -103,6 +104,8 @@ static GLfloat angle = 0.0;
 static GLboolean fullscreen = GL_FALSE;	/* Create a single fullscreen window */
 static GLboolean stereo = GL_FALSE;	/* Enable stereo.  */
 static GLint samples = 0;               /* Choose visual with at least N samples. */
+static GLint swapinterval = 1;          /* Swap interval */
+static GLboolean use_srgb = GL_FALSE;
 static GLboolean animate = GL_TRUE;	/* Animation */
 static GLfloat eyesep = 5.0;		/* Eye separation. */
 static GLfloat fix_point = 40.0;	/* Fixation point distance.  */
@@ -386,6 +389,13 @@ reshape(int width, int height)
 }
    
 
+static GLfloat
+srgb_to_linear(GLfloat c)
+{
+   if (c <= 0.04045f)
+      return c / 12.92f;
+   return powf((c + 0.055f) / 1.055f, 2.4f);
+}
 
 static void
 init(void)
@@ -394,12 +404,21 @@ init(void)
    static GLfloat red[4] = { 0.8, 0.1, 0.0, 1.0 };
    static GLfloat green[4] = { 0.0, 0.8, 0.2, 1.0 };
    static GLfloat blue[4] = { 0.2, 0.2, 1.0, 1.0 };
+   int i;
 
    glLightfv(GL_LIGHT0, GL_POSITION, pos);
    glEnable(GL_CULL_FACE);
    glEnable(GL_LIGHTING);
    glEnable(GL_LIGHT0);
    glEnable(GL_DEPTH_TEST);
+   if (use_srgb) {
+      for (i = 0; i < 3; ++i) {
+         red[i] = srgb_to_linear(red[i]);
+         green[i] = srgb_to_linear(green[i]);
+         blue[i] = srgb_to_linear(blue[i]);
+      }
+      glEnable(GL_FRAMEBUFFER_SRGB);
+   }
 
    /* make the gears */
    gear1 = glGenLists(1);
@@ -469,6 +488,20 @@ no_border( Display *dpy, Window w)
                   );
 }
 
+static void
+make_fullscreen(Display *dpy, Window w)
+{
+   Atom NET_WM_STATE, NET_WM_STATE_FULLSCREEN;
+
+   NET_WM_STATE = XInternAtom(dpy, "_NET_WM_STATE", False);
+   NET_WM_STATE_FULLSCREEN = XInternAtom(dpy, "_NET_WM_STATE_FULLSCREEN", False);
+   if (NET_WM_STATE == None || NET_WM_STATE_FULLSCREEN == None)
+      return;
+
+   XChangeProperty(dpy, w, NET_WM_STATE,
+		   XA_ATOM, 32, PropModeReplace,
+		   (unsigned char *)&NET_WM_STATE_FULLSCREEN, 1);
+}
 
 /*
  * Create an RGB, double-buffered window.
@@ -505,6 +538,10 @@ make_window( Display *dpy, const char *name,
    attribs[i++] = 1;
    attribs[i++] = GLX_DEPTH_SIZE;
    attribs[i++] = 1;
+   if (use_srgb) {
+      attribs[i++] = GLX_FRAMEBUFFER_SRGB_CAPABLE_EXT;
+      attribs[i++] = 1;
+   }
    if (samples > 0) {
       attribs[i++] = GLX_SAMPLE_BUFFERS;
       attribs[i++] = 1;
@@ -524,6 +561,8 @@ make_window( Display *dpy, const char *name,
          printf(", Stereo");
       if (samples > 0)
          printf(", Multisample");
+      if (use_srgb)
+         printf(", sRGB");
       printf(" visual\n");
       exit(1);
    }
@@ -540,8 +579,10 @@ make_window( Display *dpy, const char *name,
 		        0, visinfo->depth, InputOutput,
 		        visinfo->visual, mask, &attr );
 
-   if (fullscreen)
+   if (fullscreen) {
       no_border(dpy, win);
+      make_fullscreen(dpy, win);
+   }
 
    /* set hints and properties */
    {
@@ -594,13 +635,27 @@ is_glx_extension_supported(Display *dpy, const char *query)
  * Attempt to determine whether or not the display is synched to vblank.
  */
 static void
-query_vsync(Display *dpy, GLXDrawable drawable)
+setup_vsync(Display *dpy, GLXDrawable drawable)
 {
    int interval = 0;
+
+   if (!is_glx_extension_supported(dpy, "GLX_EXT_swap_control_tear") &&
+       swapinterval < 0) {
+      printf("GLX_EXT_swap_control_tear not supported, disabling\n");
+      swapinterval = -swapinterval;
+   }
 
 #if defined(GLX_EXT_swap_control)
    if (is_glx_extension_supported(dpy, "GLX_EXT_swap_control")) {
        unsigned int tmp = -1;
+
+       if (swapinterval != 1) {
+          PFNGLXSWAPINTERVALEXTPROC pglXSwapIntervalEXT =
+             (PFNGLXSWAPINTERVALEXTPROC)
+             glXGetProcAddressARB((const GLubyte *) "glXSwapIntervalEXT");
+          pglXSwapIntervalEXT(dpy, drawable, swapinterval);
+       }
+
        glXQueryDrawable(dpy, drawable, GLX_SWAP_INTERVAL_EXT, &tmp);
        interval = tmp;
    } else
@@ -609,6 +664,13 @@ query_vsync(Display *dpy, GLXDrawable drawable)
       PFNGLXGETSWAPINTERVALMESAPROC pglXGetSwapIntervalMESA =
           (PFNGLXGETSWAPINTERVALMESAPROC)
           glXGetProcAddressARB((const GLubyte *) "glXGetSwapIntervalMESA");
+
+       if (swapinterval != 1) {
+          PFNGLXSWAPINTERVALMESAPROC pglXSwapIntervalMESA =
+             (PFNGLXSWAPINTERVALMESAPROC)
+             glXGetProcAddressARB((const GLubyte *) "glXSwapIntervalMESA");
+          pglXSwapIntervalMESA(swapinterval);
+       }
 
       interval = (*pglXGetSwapIntervalMESA)();
    } else if (is_glx_extension_supported(dpy, "GLX_SGI_swap_control")) {
@@ -619,17 +681,23 @@ query_vsync(Display *dpy, GLXDrawable drawable)
        * export GLX_MESA_swap_control.  In that case, this branch will never
        * be taken, and the correct result should be reported.
        */
-      interval = 1;
+       if (swapinterval != 1) {
+          PFNGLXSWAPINTERVALSGIPROC pglXSwapIntervalSGI =
+             (PFNGLXSWAPINTERVALSGIPROC)
+             glXGetProcAddressARB((const GLubyte *) "glXSwapIntervalSGI");
+          pglXSwapIntervalSGI(swapinterval);
+       }
+
+      interval = swapinterval;
    }
 
-
-   if (interval > 0) {
+   if (interval != 0) {
       printf("Running synchronized to the vertical refresh.  The framerate should be\n");
       if (interval == 1) {
          printf("approximately the same as the monitor refresh rate.\n");
-      } else if (interval > 1) {
+      } else {
          printf("approximately 1/%d the monitor refresh rate.\n",
-                interval);
+                abs(interval));
       }
    }
 }
@@ -710,8 +778,10 @@ usage(void)
 {
    printf("Usage:\n");
    printf("  -display <displayname>  set the display to run on\n");
+   printf("  -srgb                   run in sRGB mode\n");
    printf("  -stereo                 run in stereo mode\n");
    printf("  -samples N              run in multisample mode with at least N samples\n");
+   printf("  -swapinterval N         set swap interval to N frames (default 1)\n");
    printf("  -fullscreen             run in fullscreen mode\n");
    printf("  -info                   display OpenGL renderer info\n");
    printf("  -geometry WxH+X+Y       window geometry\n");
@@ -739,11 +809,18 @@ main(int argc, char *argv[])
       else if (strcmp(argv[i], "-info") == 0) {
          printInfo = GL_TRUE;
       }
+      else if (strcmp(argv[i], "-srgb") == 0) {
+         use_srgb = GL_TRUE;
+      }
       else if (strcmp(argv[i], "-stereo") == 0) {
          stereo = GL_TRUE;
       }
       else if (i < argc-1 && strcmp(argv[i], "-samples") == 0) {
          samples = strtod(argv[i+1], NULL );
+         ++i;
+      }
+      else if (i < argc-1 && strcmp(argv[i], "-swapinterval") == 0) {
+         swapinterval = strtod(argv[i+1], NULL );
          ++i;
       }
       else if (strcmp(argv[i], "-fullscreen") == 0) {
@@ -777,7 +854,7 @@ main(int argc, char *argv[])
    make_window(dpy, "glxgears", x, y, winWidth, winHeight, &win, &ctx, &visId);
    XMapWindow(dpy, win);
    glXMakeCurrent(dpy, win, ctx);
-   query_vsync(dpy, win);
+   setup_vsync(dpy, win);
 
    if (printInfo) {
       printf("GL_RENDERER   = %s\n", (char *) glGetString(GL_RENDERER));
